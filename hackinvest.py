@@ -7,6 +7,30 @@ st.set_page_config(page_title="Radar de Dividendos", layout="wide")
 
 st.title("📊 HackInvest")
 
+@st.cache_data(ttl=3600) # Guarda os dados por 1 hora
+def calcular_score_estatistico(t, meta):
+    try:
+        acao = yf.Ticker(t + ".SA")
+        h = acao.history(period="1y")
+        if h.empty: return 0
+        p_at = h['Close'].iloc[-1]
+        m200 = h['Close'].rolling(window=200).mean().iloc[-1]
+        inf = acao.info
+        div = inf.get('dividendRate') or inf.get('trailingAnnualDividendRate') or 0
+        lpa = inf.get('trailingEps', 0) or 0
+        vpa = inf.get('bookValue', 0) or 0
+        
+        pts = 0
+        # Bazin (40 pts)
+        if (div/meta if div > 0 else 0) > p_at: pts += 40 
+        # Graham (40 pts)
+        if np.sqrt(22.5 * lpa * vpa) > p_at: pts += 40    
+        # Média 200 (20 pts)
+        if p_at <= m200: pts += 20                       
+        return int(pts)
+    except: return 0
+
+
 # Menu lateral
 st.sidebar.header("Configurações")
 ticker_input = st.sidebar.text_input("Digite o Ticker (ex: BBAS3):", value="BBAS3").upper()
@@ -118,4 +142,5 @@ try:
         st.line_chart(dados_finais)
 
 except Exception as e:
+
     st.error(f"Erro técnico: {e}")
